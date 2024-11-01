@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 from app.annotation_graph.neo4j_handler import Neo4jConnection
 from app.llm_handle.llm_models import LLMInterface
-from app.prompts.annotation_prompts import EXTRACT_RELEVANT_INFORMATION_PROMPT, JSON_CONVERSION_PROMPT, SELECT_PROPERTY_VALUE_PROMPT
+from app.prompts.annotation_prompts import EXTRACT_RELEVANT_INFORMATION_PROMPT, FINAL_RESPONSE_PROMPT, JSON_CONVERSION_PROMPT, REASONING_GENERATOR_PROMPT, SELECT_PROPERTY_VALUE_PROMPT
 from .dfs_handler import *
 from .llm_handler import *
 
@@ -57,6 +57,13 @@ class Graph:
             return {"error": f"Failed to query knowledge graph: {str(e)}"}
 
     def generate_graph(self, query):
+        # intermediate_steps = {
+        #     "relevant_information": "",
+        #     "initial_json": "",
+        #     "validated_json": "",
+        #     "reasoning": "",
+        #     "queried_graph"
+        # }
         try:
             logger.info(f"Starting annotation query processing for question: '{query}'")
 
@@ -66,10 +73,14 @@ class Graph:
             
             validated_json = self._validate_and_update(initial_json)
             
+            reasoning = self._generate_reasoning(query, validated_json)
+
             graph = self.query_knowledge_graph(validated_json)
+
+            final_answer = self._provide_text_response(query,validated_json, graph)
             
             logger.info("Completed query processing.")
-            return graph
+            return final_answer
         except Exception as e:
             logger.error(f"An error occurred during graph generation: {e}")
             raise
@@ -140,3 +151,21 @@ class Graph:
         except Exception as e:
             logger.error(f"Failed to select property value: {e}")
             raise
+    
+    def _provide_text_response(self, query, json_query, kg_response):
+        try:
+            prompt = FINAL_RESPONSE_PROMPT.format(query=query, json_query=json_query, kg_response=kg_response)
+            text_response = self.llm.generate(prompt)
+            logger.info(f"Final Answer:\n{text_response}")
+            return text_response
+        except Exception as e:
+            logger.error(f"Failed to provide final response: {e}")
+
+    def _generate_reasoning(self, query, json_query):
+        try:
+            prompt = REASONING_GENERATOR_PROMPT.format(query=query, json_query=json_query)
+            response = self.llm.generate(prompt)
+            logger.info(f"Reasoning: \n{response}")
+            return response
+        except Exception as e:
+            logger.error(f"Failed to provide reasoning response: {e}")

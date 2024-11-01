@@ -33,18 +33,23 @@ def process_query():
     and an optional graph (if the query is graph-related), or just content for queries 
     without any graph-related information.
     '''
-    try:
-        data = request.json
-        query = data.get('query', None)
-        graph = data.get('graph', None)
-        user = data.get('user', None)
+    print(request)
+    data = request.json
+    print(data)
+    query = data.get('query', '')
+    graph = data.get('graph', None)
+    user = data.get('user', None)
 
-        config = current_app.config
-        schema_text = open(config['SCHEMA_PATH'], 'r').read()
-        llm = get_llm_model(config)   
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+
+    config = current_app.config
+    schema_text = open(config['SCHEMA_PATH'], 'r').read()
+    llm = get_llm_model(config)   
+    
+    try:
         response = AiAssistance(llm,schema_text).assistant_response(query,graph,user)
-        return response
+        return jsonify(response)
     except:
-        traceback.print_exc()
-        return "Bad Response", 400
+        return jsonify({"response": "empty page"}), 400
   

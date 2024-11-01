@@ -130,3 +130,42 @@ If none of the values seem appropriate or relevant put empty_string ("") in the 
   "confidence_score": [A score between 0 and 1 indicating confidence],
 }}
 """
+
+
+FINAL_RESPONSE_PROMPT = """
+## Task: Answer the Query based on the provided Knowledge Graph Response
+### Query: {query}
+
+### JSON Query sent to Knowledge Graph:
+{json_query}
+
+### Knowledge Graph Response:
+{kg_response}
+
+### Follow these guidelines:
+1. Directly address the original query.
+2. Use only the information provided in the knowledge graph response.
+3. If the knowledge graph response doesn't contain enough information to fully answer the query, state this clearly.
+4. Format the response in a clear, easy-to-read manner.
+5. If appropriate, use bullet points or numbered lists for clarity.
+6. Do not expose any error message 
+7. If the nodes have both id and name show both
+8. Provide a concise and informative answer.
+
+Your response:
+"""
+
+REASONING_GENERATOR_PROMPT = """
+## Task: Provide easy to understand connection to provide how the query to the json
+
+### Query: {query}
+
+### Constructed JSON:
+{json_query}
+
+### Rules:
+- use arrows to show relations and add the node in brace ()
+- make it easy to understand
+- (node_1)-[relation_1]->(node_2 if property add here)- ... 
+- no more description only short sentence to describe the above connection
+"""

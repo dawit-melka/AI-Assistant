@@ -123,7 +123,20 @@ class AiAssistance:
             logger.info("summarizing graph")
             summary = self.summarize_graph(graph,query)
             return summary
+        response = self.annotate_graph(query,user_id)
+        # user_query = self.classify_user_question(query,user_id)
+        # if user_query =="graph":
+        #     try:
+        #         response = self.annotate_graph(query,user_id)
+        #     except:
+        #         pass
+        # elif user_query =="llm":
+        #     try:
+        #         response = self.call_rag(query,user_id)
+        #     except:
+        #         pass
+        # else:
+        #     response =  self.clarification()
 
-        logger.info("agent calling")
-        response = self.agent(query, user_id)
+        # user_history = self.cache.add_conversation(user_id,response)
         return response
