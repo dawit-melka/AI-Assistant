@@ -156,7 +156,7 @@ Your response:
 """
 
 REASONING_GENERATOR_PROMPT = """
-## Task: Provide easy to understand connection to provide how the query to the json
+## Task: Provide easy to understand connection to provide how the query converted to the json based on schema
 
 ### Query: {query}
 
@@ -164,8 +164,7 @@ REASONING_GENERATOR_PROMPT = """
 {json_query}
 
 ### Rules:
-- use arrows to show relations and add the node in brace ()
-- make it easy to understand
-- (node_1)-[relation_1]->(node_2 if property add here)- ... 
-- no more description only short sentence to describe the above connection
+- Convert the JSON to easly understandable connection. 
+- We are only interested in the connections visualized
+- No explanation needed for the nodes
 """

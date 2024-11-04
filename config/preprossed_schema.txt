@@ -53,6 +53,7 @@ Note transcription factor have label `gene`
 (:promoter)-[:associated_with]->(:gene)
 (:protein)-[:interacts_with]->(:protein)
 (:protein)-[:translation_of]->(:transcript)
+(:snp)-[:located_in]->(:gene)
 (:snp)-[:closest_gene]->(:gene)
 (:snp)-[:eqtl_association]->(:gene)
 (:snp)-[:activity_by_contact]->(:gene)

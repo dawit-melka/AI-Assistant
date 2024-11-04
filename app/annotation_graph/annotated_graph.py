@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from flask import app, current_app
@@ -57,33 +58,40 @@ class Graph:
             return {"error": f"Failed to query knowledge graph: {str(e)}"}
 
     def generate_graph(self, query):
-        # intermediate_steps = {
-        #     "relevant_information": "",
-        #     "initial_json": "",
-        #     "validated_json": "",
-        #     "reasoning": "",
-        #     "queried_graph"
-        # }
+        intermediate_steps = {
+            "relevant_information": "",
+            "initial_json": "",
+            "validated_json": "",
+            "reasoning": "",
+            "queried_graph": "",
+            "final_answer": "No result found"
+        }
         try:
             logger.info(f"Starting annotation query processing for question: '{query}'")
 
             relevant_information = self._extract_relevant_information(query)
+            intermediate_steps["relevant_information"] = relevant_information
             
             initial_json = self._convert_to_annotation_json(relevant_information, query)
+            intermediate_steps["initial_json"] = copy.deepcopy(initial_json)
             
             validated_json = self._validate_and_update(initial_json)
+            intermediate_steps["validated_json"] = validated_json
             
             reasoning = self._generate_reasoning(query, validated_json)
+            intermediate_steps["reasoning"] = reasoning
 
             graph = self.query_knowledge_graph(validated_json)
-
+            intermediate_steps["queried_graph"] = graph
+    
             final_answer = self._provide_text_response(query,validated_json, graph)
+            intermediate_steps["final_answer"] = final_answer
             
             logger.info("Completed query processing.")
-            return final_answer
+            return intermediate_steps
         except Exception as e:
             logger.error(f"An error occurred during graph generation: {e}")
-            raise
+            return intermediate_steps
 
     def _extract_relevant_information(self, query):
         try:
@@ -110,14 +118,15 @@ class Graph:
     def _validate_and_update(self, initial_json):
         try:
             logger.info("Validating and updating the JSON structure.")
-
+            node_types = {}
             # Validate node properties
             if "nodes" not in initial_json:
                 raise ValueError("The input JSON must contain a 'nodes' key.")
             for node in initial_json.get("nodes"):
                 node_type = node.get('type')
                 properties = node.get('properties', {})
-
+                node_id = node.get('node_id')
+                node_type[node_id] = node_type
                 for property_key in list(properties.keys()):
                     property_value = properties[property_key]
 
@@ -135,6 +144,11 @@ class Graph:
                         else:
                             logger.debug(f"No suitable property found for {node_type} with key {property_key} and value {property_value}.")
                             raise ValueError(f"No suitable property found for {node_type} with key {property_key} and value {property_value}.")
+            # VAlidate edge direction
+            for edge in initial_json.get("predicates", []):
+                s = node_types.get(edge['source'])
+                t = node_types.get(edge['target'])
+                rel = edge['type']
 
             logger.info(f"Validated and updated JSON: \n{json.dumps(initial_json, indent=2)}")
             return initial_json

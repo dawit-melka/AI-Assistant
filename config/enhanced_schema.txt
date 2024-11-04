@@ -149,6 +149,7 @@ Note transcription factor have label `gene`
 (:protein)-[:interacts_with]->(:protein)
 (:protein)-[:translation_of]->(:transcript)
 (:snp)-[:closest_gene]->(:gene)
+(:snp)-[:located_in]->(:gene)
 (:snp)-[:eqtl_association]->(:gene)
 (:snp)-[:activity_by_contact]->(:gene)
 (:snp)-[:chromatin_state]->(:uberon)
