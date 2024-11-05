@@ -1,4 +1,5 @@
 import os
+from app.annotation_graph.schema_handler import SchemaHandler
 from app.rag.query import RAG
 from dotenv import load_dotenv
 from .annotation_graph.annotated_graph import Graph
@@ -28,7 +29,8 @@ class AiAssistance:
     def __init__(self,llm:LLMInterface,schema) -> None:
         self.llm = llm
         self.schema = schema
-        self.annotation_graph = Graph(llm,schema)
+        self.schema_handler = SchemaHandler('./config/schema_config.yaml', './config/biocypher_config.yaml')
+        self.annotation_graph = Graph(llm,schema, self.schema_handler)
         self.rag = RAG(self.llm)
 
         self.message_history = {
@@ -123,7 +125,7 @@ class AiAssistance:
             logger.info("summarizing graph")
             summary = self.summarize_graph(graph,query)
             return summary
-        response = self.annotate_graph(query,user_id)
+        response = self.annotation_graph.generate_graph(query,user_id)
         # user_query = self.classify_user_question(query,user_id)
         # if user_query =="graph":
         #     try:

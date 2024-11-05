@@ -82,6 +82,7 @@ Convert the Extracted information into the target JSON format based on the schem
 3. Ensure all nodes that appear in the predicates (relationships) are also included in the "nodes" list, even if they were not explicitly extracted.
 4. Ensure all predicates (relationships) **exactly match** those defined in the schema.
 5. **Do NOT add** any information not present in the extracted information or schema.
+6. Assign different node_id if you they are independent else if you want to intersection filtering use same node_id for same label depending on the query
 
 ### Response format (JSON):
 {{

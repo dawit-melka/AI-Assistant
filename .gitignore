@@ -3,3 +3,4 @@ poetry.lock
 .env
 conversation_cache.json
 qdrant_storage
+.cache

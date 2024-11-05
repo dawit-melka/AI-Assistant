@@ -11,7 +11,6 @@ class Graph_Summarizer:
     '''
     def __init__(self,llm) -> None:
         self.llm = llm
-        self.llm = llm
         max_token=0
         self.max_token=max_token
       

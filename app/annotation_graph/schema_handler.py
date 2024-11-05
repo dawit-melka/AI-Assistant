@@ -6,30 +6,37 @@ import yaml
 
 class SchemaHandler:
     def __init__(self, schema_config_path, biocypher_config_path):
-        self.bcy = BioCypher(schema_config_path=schema_config_path, biocypher_config_path=biocypher_config_path)
-        self.schema = self.bcy._get_ontology_mapping()._extend_schema()
-        self.processed_schema = self.process_schema(self.schema) 
-        self.parent_nodes = self.get_parent_nodes()
-        self.adj_list = self.get_adjacency_list()
-        self.schema_graph = self.build_graph(self.adj_list)
-        self.graph_file = 'graph.pkl'
+        try:
+            self.bcy = BioCypher(schema_config_path=schema_config_path, biocypher_config_path=biocypher_config_path)
+            self.schema = self.bcy._get_ontology_mapping()._extend_schema()
+            self.processed_schema = self.process_schema(self.schema) 
+            # print(self.processed_schema)
+            # self.parent_nodes = self.get_parent_nodes()
+            # self.adj_list = self.get_adjacency_list()
+            # self.schema_graph = self.build_graph(self.adj_list)
+            self.graph_file = 'graph.pkl'
+        except Exception as e:
+            print(e)
 
     def process_schema(self, schema):
         process_schema = {}
-        for _, value in schema.items():
+
+        for value in schema.values():
             input_label = value.get("input_label")
             output_label = value.get("output_label")
             source = value.get("source")
             target = value.get("target")
 
-            label = output_label if output_label else input_label
-            if isinstance(label, list):
-                for i_label in label:
-                    key_label = f'{source}-{i_label}-{target}' if source and target else i_label
-                    process_schema[key_label] = {**value, "key": key_label}
-            else:
-                key_label = f'{source}-{label}-{target}' if source and target else label
-                process_schema[key_label] = {**value, "key": key_label}
+            labels = output_label or input_label
+            labels = labels if isinstance(labels, list) else [labels]
+            sources = source if isinstance(source, list) else [source]
+            targets = target if isinstance(target, list) else [target]
+
+            for i_label in labels:
+                for s in sources:
+                    for t in targets:
+                        key_label = f'{s}-{i_label}-{t}' if s and t else i_label
+                        process_schema[key_label] = {**value, "key": key_label}
 
         return process_schema
     
