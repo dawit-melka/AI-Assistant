@@ -7,8 +7,10 @@ import os
 from dotenv import load_dotenv
 from app.annotation_graph.neo4j_handler import Neo4jConnection
 from app.annotation_graph.schema_handler import SchemaHandler
+from app.annotation_graph.web_search_handler import WebSearchHandler
 from app.llm_handle.llm_models import LLMInterface
 from app.prompts.annotation_prompts import EXTRACT_RELEVANT_INFORMATION_PROMPT, FINAL_RESPONSE_PROMPT, JSON_CONVERSION_PROMPT, REASONING_GENERATOR_PROMPT, SELECT_PROPERTY_VALUE_PROMPT
+from app.prompts.web_search_prompts import SYTHESIS_PROMPT
 from .dfs_handler import *
 from .llm_handler import *
 
@@ -25,6 +27,24 @@ class Graph:
                                             username=os.getenv('NEO4J_USERNAME'), 
                                             password=os.getenv('NEO4J_PASSWORD'))
         self.schema_handler = schema_handler
+        self.web_search = WebSearchHandler(
+            api_key=os.getenv('GOOGLE_API_KEY'),
+            custom_search_id=os.getenv('GOOGLE_CUSTOM_SEARCH_ID')
+        )
+        self.trusted_domains = [
+            'ncbi.nlm.nih.gov',
+            'uniprot.org',
+            'genecards.org',
+            'ensembl.org',
+            'genome.gov',
+            'ebi.ac.uk',
+            'proteinatlas.org',
+            'nature.com',
+            'sciencedirect.com',
+            'cell.com',
+            'pubmed.ncbi.nlm.nih.gov',
+            'rejuve.bio'
+        ]
 
     def query_knowledge_graph(self, json_query):
         """
@@ -63,10 +83,13 @@ class Graph:
         intermediate_steps = {
             "relevant_information": "",
             "initial_json": "",
-            "validated_json": "",
+            "validation_report": "",
+            "validated_json": {},
             "reasoning": "",
-            "queried_graph": "",
-            "final_answer": "No result found"
+            "queried_graph": None,
+            "web_search_results": None,
+            "answer": "No result found",
+            "source": "knowledge_graph"
         }
         try:
             logger.info(f"Starting annotation query processing for question: '{query}'")
@@ -77,17 +100,48 @@ class Graph:
             initial_json = self._convert_to_annotation_json(relevant_information, query)
             intermediate_steps["initial_json"] = copy.deepcopy(initial_json)
             
-            validated_json = self._validate_and_update(initial_json)
-            intermediate_steps["validated_json"] = validated_json
-            
-            reasoning = self._generate_reasoning(query, validated_json["updated_json"])
+            validation = self._validate_and_update(initial_json)
+            intermediate_steps["validation_report"] = validation['validation_report']
+            if validation["validation_report"]["validation_status"] == "failed":
+                logger.warning("Knowledge graph validation failed, falling back to web search")
+                web_results = self._get_web_search_results(query)
+                web_search_results = web_results.get("web_search_results")
+                intermediate_steps["web_search_results"] = web_results["web_search_results"]
+                if web_search_results and web_results["answer"] != "No result found.":
+                    intermediate_steps["answer"] = web_results["answer"]
+                    intermediate_steps["source"] = "web"
+                    logger.info("Returning answer from web search.")
+                    return intermediate_steps
+                else: 
+                    logger.warning("Web search failed, falling back to LLM  response")
+                    intermediate_steps["answer"] = self.llm.generate(query)
+                    intermediate_steps["source"] = "llm"
+                    logger.info("Returning answer from LLM.")
+                    return intermediate_steps
+            intermediate_steps["validated_json"] = validation["updated_json"]
+            graph = self.query_knowledge_graph(validation["updated_json"])
+            reasoning = self._generate_reasoning(query, validation["updated_json"])
             intermediate_steps["reasoning"] = reasoning
-
-            graph = self.query_knowledge_graph(validated_json["updated_json"])
             intermediate_steps["queried_graph"] = graph
+            if "error" in graph or len(graph['nodes']) == 0:
+                logger.warning("Knowledge graph returned empty result, falling back to web search")
+                web_results = self._get_web_search_results(query)
+                web_search_results = web_results.get("web_search_results")
+                intermediate_steps["web_search_results"] = web_results["web_search_results"]
+                if web_search_results and web_results["answer"] != "No result found.":
+                    intermediate_steps["answer"] = web_results["answer"]
+                    intermediate_steps["source"] = "web"
+                    logger.info("Returning answer from web search.")
+                    return intermediate_steps
+                else: 
+                    logger.warning("Web search failed, falling back to LLM  response")
+                    intermediate_steps["answer"] = self.llm.generate(query)
+                    intermediate_steps["source"] = "llm"
+                    logger.info("Returning answer from LLM.")
+                    return intermediate_steps
     
-            final_answer = self._provide_text_response(query,validated_json, graph)
-            intermediate_steps["final_answer"] = final_answer
+            final_answer = self._provide_text_response(query,validation, graph)
+            intermediate_steps["answer"] = final_answer
             
             logger.info("Completed query processing.")
             return intermediate_steps
@@ -202,8 +256,8 @@ class Graph:
                     # Track direction changes
                     validation_report["direction_changes"].append({
                         "relation_type": rel,
-                        "original": f"{s} → {t}",
-                        "corrected": f"{t} → {s}"
+                        "original": f"({s})-[{rel}]→({t})",
+                        "corrected": f"({t})-[{rel}]→({s})"
                     })
                     # Swap source and target
                     temp_s = edge['source']
@@ -240,7 +294,7 @@ class Graph:
         try:
             prompt = FINAL_RESPONSE_PROMPT.format(query=query, json_query=json_query, kg_response=kg_response)
             text_response = self.llm.generate(prompt)
-            logger.info(f"Final Answer:\n{text_response}")
+            logger.info(f"Final Answer:\n{text_response[:100]} ...")
             return text_response
         except Exception as e:
             logger.error(f"Failed to provide final response: {e}")
@@ -253,3 +307,26 @@ class Graph:
             return response
         except Exception as e:
             logger.error(f"Failed to provide reasoning response: {e}")
+
+    def _get_web_search_results(self, query):
+        try:
+            # query = f"{query} site:({' OR '.join(self.trusted_domains)})"
+            search_results = self.web_search.search(query)
+
+            if not search_results:
+                raise ValueError("No relevant web search result found")
+            
+            search_context = "\n".join([
+                f"Title: {result['title']}\nDescription: {result['snippet']}\nSource: {result['link']}\n"
+                for result in search_results
+            ])
+
+            prompt = SYTHESIS_PROMPT.format(query=query, search_context=search_context)
+            synthesized_answer = self.llm.generate(prompt)
+            return {
+                "answer": synthesized_answer,
+                "web_search_results": search_results
+            }
+        except Exception as e:
+            logger.error(f"Failed to synthesize web search results: {e}")
+            return {"answer": f"Failed to process web search: {e}", "web_search_results": []}

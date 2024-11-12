@@ -1,7 +1,7 @@
 
 EXTRACT_RELEVANT_INFORMATION_PROMPT = """
 ## TASK:
-Let's think step by step to extract the relevant information needed to build the query based on the schema.
+Let's think step by step to extract the relevant information needed to build the query based on the schema. If the query is not related to bioinformatics or is too general (e.g., "Who is the CEO of Rejuve Bio?"), do **not** try to transform or reinterpret the query. Instead, respond with a message indicating that the query is not bioinformatics-related.
 
 ### Query: {query}
 
@@ -9,38 +9,38 @@ Let's think step by step to extract the relevant information needed to build the
 {schema}
 
 ### EXTRACTION RULES:
-1. Identify relevant nodes and their properties based on the schema.
-2. Identify necessary relationships between the nodes.
-3. Construct a path using relationships from the schema (connect from one node to the other to achive the query).
-4. Include any specific IDs mentioned in the query.
-5. Double check if the direction is reveresed. it is strict (source)-[predicate]->(target)
+1. If the query is not bioinformatics-related,respond that the query is not bioinformatics-related.
+2. Identify relevant nodes and their properties based on the schema.
+3. Identify necessary relationships between the nodes.
+4. Construct a path using relationships from the schema (connect from one node to another to achieve the query).
+5. Include any specific IDs mentioned in the query.
+6. Double-check if the direction of relationships is reversed. It is strict: (source) -[predicate]-> (target).
 
 ### STRICT RULES:
 - Use only node types and relationships specified in the schema.
 - Do not invent or reverse relationships.
 - Ensure all nodes in relationships are included in the list.
-- Only add property keys if mentioned in the query
-- Never grab the property from the schema 
-- Never infer an id from your knowledge
+- Only add property keys if mentioned in the query.
+- Never grab the property from the schema.
+- Never infer an ID from your knowledge.
 
 ### RESPONSE FORMAT:
-Provide your response in the following format:
 
 **Relevant Nodes:**
 - Node Type: `node_type1`
   - ID: `specific_id_or_empty_string`
-  - Properties: 
+  - Properties:
     - key: value # ONLY if mentioned in the user Query
 
 - Node Type: `node_type2`
   - ID: ``
-  - Properties: 
+  - Properties:
 
 - Node Type: `node_type3`
   - ID: ``
   - Properties:
 
-**Relevant Relationships:** # ONLY if a connection of path is needed to acheive the query
+**Relevant Relationships:** # ONLY if a connection of path is needed to achieve the query
 For each relationship, specify the details as follows:
 
 1. **Relationship 1:**
@@ -62,6 +62,7 @@ For each relationship, specify the details as follows:
      - ID: `""`
 
 (Continue for all relevant relationships)
+
 """
 
 JSON_CONVERSION_PROMPT = """

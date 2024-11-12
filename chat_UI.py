@@ -1,5 +1,4 @@
 import streamlit as st
-import requests
 import asyncio
 import aiohttp
 
@@ -34,12 +33,13 @@ if st.button('Process Query'):
                             
                             # Special handling for validated JSON step
                             if step == "validated_json":
-                                with st.expander(f"📍 {step_title}"):
+                                if result['source'] != 'knowledge_graph':
+                                    continue
+                                with st.expander("📍 Validation"):
                                     validation_data = result[step]
-                                    
+                                    report = result["validation_report"]
                                     # Display validation report if available
-                                    if isinstance(validation_data, dict) and "validation_report" in validation_data:
-                                        report = validation_data["validation_report"]
+                                    if isinstance(report, dict):
                                         
                                         # Show validation status
                                         status_color = "green" if report["validation_status"] == "success" else "red"
@@ -69,6 +69,7 @@ if st.button('Process Query'):
                                                 st.markdown(f"""
                                                 ```
                                                 Relation: {change['relation_type']}  
+                                                Original: {change['original']}
                                                 Direction changed: {change['corrected']}
                                                 ```
                                                 ***
@@ -90,23 +91,45 @@ if st.button('Process Query'):
                                         
                                         # Show the updated JSON
                                         st.markdown("#### Updated JSON")
-                                        st.json(validation_data["updated_json"])
+                                        st.json(result["validated_json"])
                                     else:
                                         # Fall back to simple JSON display if no validation report
                                         st.json(validation_data)
                             else:
                                 # Handle other steps normally
+                                if step == "queried_graph" and  result['source'] != 'knowledge_graph':
+                                    continue
+                                if step == "reasoning" and  result['source'] != 'knowledge_graph':
+                                    continue
+                                if step == "initial_json" and  result['source'] != 'knowledge_graph':
+                                    continue
+                                
                                 with st.expander(f"📍 {step_title}"):
                                     content = result[step]
                                     if isinstance(content, dict):
                                         st.json(content)
                                     else:
                                         st.write(content)
-                    
+                                    
+                                    # Check if there's a source in the content, and display it
+                                    # if "source" in result:
+                                    #     st.markdown("**Source:**")
+                                    #     st.write(result["source"])
+                    if result['web_search_results']:
+                        with st.expander(f"🔍 Web Search Results"):
+                            search_results = result['web_search_results']
+                            if search_results:
+                                for i, item in enumerate(search_results, 1):
+                                    st.markdown(f"**Result {i}:**")
+                                    st.write(f"**Title:** {item['title']}")
+                                    st.write(f"**Snippet:** {item['snippet']}")
+                                    st.write(f"[{item['link']}]({item['link']})")
+                                    st.write("---")
+                        
                     # Display final answer prominently
-                    if "final_answer" in result:
-                        st.markdown("### 🎯 Final Answer")
-                        st.success(result["final_answer"])
+                    if "answer" in result:
+                        st.markdown(f"### 🎯 Final Answer (Source: {result['source']})")
+                        st.success(result["answer"])
 
         asyncio.run(get_result())
     else:
