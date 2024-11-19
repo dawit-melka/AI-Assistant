@@ -16,7 +16,7 @@ STEP_ORDER = [
 
 # Create a clean layout
 st.markdown("### Enter your query below:")
-user_query = st.text_input("Query:", placeholder="Type your query here...")
+user_query = st.text_area("Query:", placeholder="Type your query here...")
 
 if st.button('Process Query'):
     if user_query:
@@ -124,6 +124,7 @@ if st.button('Process Query'):
                                     st.write(f"**Title:** {item['title']}")
                                     st.write(f"**Snippet:** {item['snippet']}")
                                     st.write(f"[{item['link']}]({item['link']})")
+                                    # st.write(f"**Content:**\n{item['content']}")
                                     st.write("---")
                         
                     # Display final answer prominently
